@@ -1,4 +1,4 @@
-package org.client;
+package org.client.framework;
 
 public class JmxHost {
     private String address;

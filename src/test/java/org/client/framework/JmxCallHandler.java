@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.client;
+package org.client.framework;
 
 import javax.management.MBeanServerConnection;
 import javax.management.MBeanServerInvocationHandler;
