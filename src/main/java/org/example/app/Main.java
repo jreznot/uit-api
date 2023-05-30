@@ -1,5 +1,7 @@
 package org.example.app;
 
+import org.example.framework.UiRobot;
+
 import javax.management.*;
 import javax.swing.*;
 import java.awt.*;
@@ -13,7 +15,8 @@ public class Main {
     // -Djava.rmi.server.hostname=localhost
 
     public static void main(String[] args) {
-        registerJMX();
+        registerUiRobot();
+        registerBuildService();
 
         JFrame frame = new JFrame("IntelliJ IDEA");
         JLabel label = new JLabel("JMX is running on "
@@ -28,11 +31,25 @@ public class Main {
         frame.setVisible(true);
     }
 
-    private static void registerJMX() {
+    private static void registerBuildService() {
         try {
             ObjectName objectName = new ObjectName("com.intellij:type=BuildService");
             MBeanServer server = ManagementFactory.getPlatformMBeanServer();
             server.registerMBean(new BuildService(), objectName);
+        } catch (MalformedObjectNameException | InstanceAlreadyExistsException |
+                 MBeanRegistrationException | NotCompliantMBeanException e) {
+            //noinspection ThrowablePrintedToSystemOut
+            System.err.println(e);
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
+
+    private static void registerUiRobot() {
+        try {
+            ObjectName objectName = new ObjectName("com.intellij:type=UiRobot");
+            MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+            server.registerMBean(new UiRobot(), objectName);
         } catch (MalformedObjectNameException | InstanceAlreadyExistsException |
                  MBeanRegistrationException | NotCompliantMBeanException e) {
             //noinspection ThrowablePrintedToSystemOut
