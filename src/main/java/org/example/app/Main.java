@@ -1,5 +1,7 @@
 package org.example.app;
 
+import org.example.framework.IntrospectionService;
+import org.example.framework.ProjectManager;
 import org.example.framework.UiRobot;
 
 import javax.management.*;
@@ -15,8 +17,11 @@ public class Main {
     // -Djava.rmi.server.hostname=localhost
 
     public static void main(String[] args) {
-        registerUiRobot();
-        registerBuildService();
+        register("com.intellij:type=BuildService", new BuildService()); // simple example
+
+        register("com.intellij:type=UiRobot", new UiRobot());
+        register("com.intellij:type=ProjectManager", new ProjectManager());
+        register("com.intellij:type=IntrospectionService", new IntrospectionService());
 
         JFrame frame = new JFrame("IntelliJ IDEA");
         JLabel label = new JLabel("JMX is running on "
@@ -31,25 +36,11 @@ public class Main {
         frame.setVisible(true);
     }
 
-    private static void registerBuildService() {
+    private static void register(String name, Object instance) {
         try {
-            ObjectName objectName = new ObjectName("com.intellij:type=BuildService");
+            ObjectName objectName = new ObjectName(name);
             MBeanServer server = ManagementFactory.getPlatformMBeanServer();
-            server.registerMBean(new BuildService(), objectName);
-        } catch (MalformedObjectNameException | InstanceAlreadyExistsException |
-                 MBeanRegistrationException | NotCompliantMBeanException e) {
-            //noinspection ThrowablePrintedToSystemOut
-            System.err.println(e);
-            e.printStackTrace();
-            System.exit(-1);
-        }
-    }
-
-    private static void registerUiRobot() {
-        try {
-            ObjectName objectName = new ObjectName("com.intellij:type=UiRobot");
-            MBeanServer server = ManagementFactory.getPlatformMBeanServer();
-            server.registerMBean(new UiRobot(), objectName);
+            server.registerMBean(instance, objectName);
         } catch (MalformedObjectNameException | InstanceAlreadyExistsException |
                  MBeanRegistrationException | NotCompliantMBeanException e) {
             //noinspection ThrowablePrintedToSystemOut

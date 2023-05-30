@@ -3,11 +3,21 @@ package org.example.framework;
 public class UiRobot implements UiRobotMBean {
     @Override
     public RemoteRef findByXPath(String xpath) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public RemoteRef findByText(String text) {
-        return null;
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void click(RemoteRef ref) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void sendKeys(RemoteRef ref) {
+        throw new UnsupportedOperationException();
     }
 }
