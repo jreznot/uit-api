@@ -1,6 +1,6 @@
 package org.client;
 
-import org.example.RemoteRef;
+import org.example.framework.RemoteRef;
 import org.junit.Test;
 
 import static org.client.JmxCallHandler.jmx;
