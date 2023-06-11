@@ -12,11 +12,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 // todo slf4j logging for calls
+// todo separate interface and ConnectionImpl
 public final class Connection {
     private static final Session NO_SESSION = new Session(0, OnDispatcher.EDT);
 
     private final Invoker invoker;
-    private final ThreadLocal<Session> sessionHolder = new ThreadLocal<>();
+    private final InheritableThreadLocal<Session> sessionHolder = new InheritableThreadLocal<>();
 
     private final Map<Class<?>, Object> appServices = new ConcurrentHashMap<>();
     private final Map<ProjectRef, Map<Class<?>, Object>> projectServices = new ConcurrentHashMap<>();
@@ -71,11 +72,13 @@ public final class Connection {
 
     private <T> T withSession(OnDispatcher dispatchers, Supplier<T> code) {
         int sessionId = invoker.newSession();
+        Session currentValue = sessionHolder.get();
         sessionHolder.set(new Session(sessionId, dispatchers));
         try {
             return code.get();
         } finally {
-            invoker.cleanup(sessionId);
+            sessionHolder.set(currentValue);
+            invoker.cleanup(sessionId); // todo handle network errors quietly
         }
     }
 
