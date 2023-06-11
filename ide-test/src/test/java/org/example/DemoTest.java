@@ -6,11 +6,14 @@ import org.junit.Test;
 public class DemoTest {
     @Test
     public void test() {
-        BuildClient client = new Connection().getService(BuildClient.class);
+        Connection connection = new Connection();
+        BuildClient client = connection.getInstance(BuildClient.class);
 
-        BuildResult done = client.build(null, "some");
-        done.getArgs();
+        connection.withSession(() -> {
+            BuildResult done = client.build(null, "some");
+            done.getArgs();
 
-        System.out.println(done);
+            System.out.println(done);
+        });
     }
 }

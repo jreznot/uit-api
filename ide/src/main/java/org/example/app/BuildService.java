@@ -6,4 +6,8 @@ class BuildService {
     }
 }
 
-class BuildResult {}
+class BuildResult {
+    String getArgs() {
+        return "no-args";
+    }
+}

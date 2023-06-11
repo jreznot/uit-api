@@ -1,12 +1,15 @@
 package org.example.shared;
 
 import java.io.Serializable;
-import java.util.List;
+import java.util.UUID;
 
 public record RemoteCall(
+        int sessionId,
+        OnDispatcher dispatcher,
+        UUID projectId,
         String className,
         String methodName,
-        List<Object> args,
+        Object[] args,
         boolean isService,
         boolean isStatic
 ) implements Serializable {

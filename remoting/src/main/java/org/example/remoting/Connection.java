@@ -3,18 +3,23 @@ package org.example.remoting;
 import org.example.remoting.jmx.JmxCallHandler;
 import org.example.remoting.jmx.JmxHost;
 import org.example.remoting.jmx.JmxName;
-import org.example.shared.RemoteCall;
-import org.example.shared.RemoteCallResult;
-import org.example.shared.RemoteRef;
+import org.example.shared.*;
 
 import java.lang.reflect.Proxy;
-import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
+// todo slf4j logging for calls
 public final class Connection {
+    private static final Session NO_SESSION = new Session(0, OnDispatcher.EDT);
+
     private final Invoker invoker;
-    private final Map<Class<?>, Object> bridges = new ConcurrentHashMap<>();
+    private final ThreadLocal<Session> sessionHolder = new ThreadLocal<>();
+
+    private final Map<Class<?>, Object> appServices = new ConcurrentHashMap<>();
+    private final Map<ProjectRef, Map<Class<?>, Object>> projectServices = new ConcurrentHashMap<>();
 
     public Connection(JmxHost host) {
         this.invoker = JmxCallHandler.jmx(Invoker.class, host);
@@ -25,31 +30,86 @@ public final class Connection {
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getService(Class<T> clazz) {
-        return (T) bridges.computeIfAbsent(clazz, this::buildBridge);
+    public <T> T getInstance(Class<T> clazz) {
+        return (T) appServices.computeIfAbsent(clazz, this::serviceBridge);
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T getInstance(Class<T> clazz, ProjectRef projectRef) {
+        return (T) appServices.computeIfAbsent(clazz, this::serviceBridge);
     }
 
     public <T> T bridge(RemoteRef ref, Class<T> clazz) {
         return null; // todo
     }
 
-    private Object buildBridge(Class<?> clazz) {
+    private Object serviceBridge(Class<?> clazz) {
         return Proxy.newProxyInstance(Connection.class.getClassLoader(), new Class[]{clazz},
                 (proxy, method, args) -> {
                     if ("equals".equals(method.getName())) return false;
                     if ("hashCode".equals(method.getName())) return clazz.hashCode();
                     if ("toString".equals(method.getName())) return "§ " + clazz.getSimpleName();
 
-                    var call = new RemoteCall("", method.getName(), Arrays.asList(args), true, false);
+                    Session session = Objects.requireNonNullElse(this.sessionHolder.get(), NO_SESSION);
+                    int sessionId = session.id();
+                    var call = new RemoteCall(
+                            sessionId,
+                            session.dispatcher(),
+                            null,
+                            "",
+                            method.getName(),
+                            args,
+                            true,
+                            false
+                    );
 
                     // todo if the expected result is @Remote and call result is RemoteRef
 
                     return invoker.invoke(call);
                 });
     }
+
+    private <T> T withSession(OnDispatcher dispatchers, Supplier<T> code) {
+        int sessionId = invoker.newSession();
+        sessionHolder.set(new Session(sessionId, dispatchers));
+        try {
+            return code.get();
+        } finally {
+            invoker.cleanup(sessionId);
+        }
+    }
+
+    public <T> T withSession(Supplier<T> code) {
+        return withSession(OnDispatcher.EDT, code);
+    }
+
+    public void withSession(Runnable code) {
+        withSession(() -> {
+            code.run();
+            return null;
+        });
+    }
+
+    public <T> T withContext(OnDispatcher dispatchers, Supplier<T> code) {
+        return withSession(dispatchers, code);
+    }
+
+    public void withContext(OnDispatcher dispatchers, Runnable code) {
+        withContext(dispatchers, () -> {
+            code.run();
+            return null;
+        });
+    }
 }
 
-@JmxName("")
+record Session(int id, OnDispatcher dispatcher) {
+}
+
+@JmxName("com.intellij:type=Invoker")
 interface Invoker {
     RemoteCallResult invoke(RemoteCall call);
+
+    int newSession();
+
+    void cleanup(int sessionId);
 }
