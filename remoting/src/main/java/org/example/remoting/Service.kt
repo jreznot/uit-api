@@ -1,5 +1,3 @@
-package org.example.remoting;
+package org.example.remoting
 
-public @interface Service {
-    ServiceLevel value();
-}
+annotation class Service(val value: ServiceLevel)

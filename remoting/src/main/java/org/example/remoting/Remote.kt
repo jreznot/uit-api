@@ -1,5 +1,3 @@
-package org.example.remoting;
+package org.example.remoting
 
-public @interface Remote {
-    String value();
-}
+annotation class Remote(val value: String)

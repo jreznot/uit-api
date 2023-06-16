@@ -1,6 +1,6 @@
-package org.example.remoting;
+package org.example.remoting
 
-public enum ServiceLevel {
+enum class ServiceLevel {
     PROJECT,
     APP
 }

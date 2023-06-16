@@ -2,7 +2,7 @@ package org.example.shared;
 
 import java.io.Serializable;
 
-public record RemoteRef(
+public record Ref(
         String id,
         String asString,
         String className,

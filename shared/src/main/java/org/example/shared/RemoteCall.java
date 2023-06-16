@@ -6,6 +6,7 @@ import java.util.UUID;
 public record RemoteCall(
         int sessionId,
         OnDispatcher dispatcher,
+        LockSemantics lockSemantics,
         UUID projectId,
         String className,
         String methodName,

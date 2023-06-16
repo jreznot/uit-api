@@ -1,20 +1,19 @@
-package org.example;
+package org.example
 
-import org.example.remoting.Connection;
-import org.junit.Test;
+import org.example.remoting.Connection
+import org.junit.Test
 
-public class DemoTest {
-    final Connection connection = new Connection();
+class DemoTest {
+    private val connection: Connection = Connection()
 
     @Test
-    public void test() {
-        BuildService buildService = connection.getInstance(BuildService.class);
+    fun test() {
+        val buildService = connection.getInstance(BuildService::class.java)
 
-        connection.withWriteAction(() -> {
-            BuildResult done = buildService.build(null, "some");
-            String args = done.getArgs();
-
-            System.out.println(args);
-        });
+        connection.withWriteAction {
+            val done = buildService.build(null, "some")
+            val args = done.args
+            println(args)
+        }
     }
 }
