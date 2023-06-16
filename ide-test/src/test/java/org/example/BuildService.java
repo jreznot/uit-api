@@ -5,7 +5,7 @@ import org.example.shared.ProjectRef;
 
 @Remote("org.example.app.BuildService")
 @Service(ServiceLevel.APP)
-interface BuildClient {
+interface BuildService {
     BuildResult build(ProjectRef projectRef, String args);
 }
 

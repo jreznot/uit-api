@@ -4,16 +4,17 @@ import org.example.remoting.Connection;
 import org.junit.Test;
 
 public class DemoTest {
+    final Connection connection = new Connection();
+
     @Test
     public void test() {
-        Connection connection = new Connection();
-        BuildClient client = connection.getInstance(BuildClient.class);
+        BuildService buildService = connection.getInstance(BuildService.class);
 
-        connection.withSession(() -> {
-            BuildResult done = client.build(null, "some");
-            done.getArgs();
+        connection.withWriteAction(() -> {
+            BuildResult done = buildService.build(null, "some");
+            String args = done.getArgs();
 
-            System.out.println(done);
+            System.out.println(args);
         });
     }
 }

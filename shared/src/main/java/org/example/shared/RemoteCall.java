@@ -13,5 +13,5 @@ public record RemoteCall(
         boolean isService,
         boolean isStatic
 ) implements Serializable {
-    static final long serialVersionUID = 42L;
+    static final long serialVersionUID = 1L;
 }

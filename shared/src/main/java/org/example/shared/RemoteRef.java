@@ -8,5 +8,5 @@ public record RemoteRef(
         String className,
         String identityHashCode
 ) implements Serializable {
-    static final long serialVersionUID = 42L;
+    private static final long serialVersionUID = 42L;
 }

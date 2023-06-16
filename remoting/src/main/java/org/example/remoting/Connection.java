@@ -14,7 +14,7 @@ import java.util.function.Supplier;
 // todo slf4j logging for calls
 // todo separate interface and ConnectionImpl
 public final class Connection {
-    private static final Session NO_SESSION = new Session(0, OnDispatcher.EDT);
+    private static final Session NO_SESSION = new Session(0, OnDispatcher.EDT, LockSemantics.NO_LOCK);
 
     private final Invoker invoker;
     private final InheritableThreadLocal<Session> sessionHolder = new InheritableThreadLocal<>();
@@ -70,42 +70,65 @@ public final class Connection {
                 });
     }
 
-    private <T> T withSession(OnDispatcher dispatchers, Supplier<T> code) {
-        int sessionId = invoker.newSession();
+    public <T> T withContext(OnDispatcher dispatchers, LockSemantics semantics, Supplier<T> code) {
         Session currentValue = sessionHolder.get();
-        sessionHolder.set(new Session(sessionId, dispatchers));
+        sessionHolder.set(new Session(currentValue != null ? currentValue.id() : invoker.newSession(), dispatchers, semantics));
         try {
             return code.get();
         } finally {
-            sessionHolder.set(currentValue);
-            invoker.cleanup(sessionId); // todo handle network errors quietly
+            if (currentValue != null) {
+                sessionHolder.set(currentValue);
+            } else {
+                invoker.cleanup(invoker.newSession()); // todo handle network errors quietly
+            }
         }
     }
 
-    public <T> T withSession(Supplier<T> code) {
-        return withSession(OnDispatcher.EDT, code);
-    }
-
-    public void withSession(Runnable code) {
-        withSession(() -> {
-            code.run();
-            return null;
-        });
-    }
-
     public <T> T withContext(OnDispatcher dispatchers, Supplier<T> code) {
-        return withSession(dispatchers, code);
+        return this.withContext(dispatchers, LockSemantics.NO_LOCK, code);
     }
 
-    public void withContext(OnDispatcher dispatchers, Runnable code) {
-        withContext(dispatchers, () -> {
+    public void withContext(OnDispatcher dispatcher, Runnable code) {
+        withContext(dispatcher, toSupplier(code));
+    }
+
+    public void withContext(Runnable code) {
+        withContext(OnDispatcher.DEFAULT, LockSemantics.NO_LOCK, toSupplier(code));
+    }
+
+    public <T> T withWriteAction(Supplier<T> code) {
+        return withContext(OnDispatcher.EDT, LockSemantics.WRITE_ACTION, code);
+    }
+
+    public void withWriteAction(Runnable code) {
+        withContext(OnDispatcher.EDT, LockSemantics.WRITE_ACTION, toSupplier(code));
+    }
+
+    public <T> T withReadAction(OnDispatcher dispatcher, Supplier<T> code) {
+        return withContext(dispatcher, LockSemantics.READ_ACTION, code);
+    }
+
+    public <T> T withReadAction(Supplier<T> code) {
+        return withReadAction(OnDispatcher.DEFAULT, code);
+    }
+
+    public void withReadAction(Runnable code) {
+        withReadAction(OnDispatcher.EDT, toSupplier(code));
+    }
+
+    private static Supplier<Object> toSupplier(Runnable code) {
+        return () -> {
             code.run();
             return null;
-        });
+        };
     }
 }
 
-record Session(int id, OnDispatcher dispatcher) {
+record Session(
+        int id,
+        OnDispatcher dispatcher,
+        LockSemantics semantics
+) {
 }
 
 @JmxName("com.intellij:type=Invoker")
