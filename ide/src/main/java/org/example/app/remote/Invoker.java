@@ -1,7 +1,7 @@
 package org.example.app.remote;
 
-import org.example.shared.RemoteCall;
-import org.example.shared.RemoteCallResult;
+import org.example.shared.impl.RemoteCall;
+import org.example.shared.impl.RemoteCallResult;
 
 import java.lang.ref.WeakReference;
 import java.util.Map;
@@ -9,11 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Invoker implements InvokerMBean {
-    private final Map<Integer, WeakReference<Object>> weakReferenceMap = new ConcurrentHashMap<>();
-    private final Map<Integer, Map<Integer, Object>> sessions = new ConcurrentHashMap<>();
+    private final Map<Integer, WeakReference<Object>> adhocReferenceMap = new ConcurrentHashMap<>();
+    private final Map<Integer, Session> sessions = new ConcurrentHashMap<>();
 
     private final AtomicInteger sessionIdSequence = new AtomicInteger(1);
-    private final AtomicInteger refIdSequence = new AtomicInteger(1);
 
     @Override
     public RemoteCallResult invoke(RemoteCall call) {
@@ -30,4 +29,9 @@ public class Invoker implements InvokerMBean {
     public void cleanup(int sessionId) {
         sessions.remove(sessionId);
     }
+}
+
+final class Session {
+    private final AtomicInteger refIdSequence = new AtomicInteger(1);
+    private Map<Integer, Object> variables = new ConcurrentHashMap<>();
 }

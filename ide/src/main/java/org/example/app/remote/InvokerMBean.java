@@ -1,7 +1,7 @@
 package org.example.app.remote;
 
-import org.example.shared.RemoteCall;
-import org.example.shared.RemoteCallResult;
+import org.example.shared.impl.RemoteCall;
+import org.example.shared.impl.RemoteCallResult;
 
 @SuppressWarnings("unused")
 public interface InvokerMBean {

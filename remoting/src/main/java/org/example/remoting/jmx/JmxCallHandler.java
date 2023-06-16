@@ -24,6 +24,7 @@ public class JmxCallHandler implements InvocationHandler {
         this.objectName = objectName;
     }
 
+    // todo inline for Invoker, get rid of Proxy usage inside of Proxy
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         JMXServiceURL url;
@@ -38,6 +39,7 @@ public class JmxCallHandler implements InvocationHandler {
             properties.put(JMXConnector.CREDENTIALS, new String[]{hostInfo.getUser(), hostInfo.getPassword()});
         }
 
+        // todo reuse connection for withContext until session cleanup, much faster instead of connect each time
         try (JMXConnector jmxc = JMXConnectorFactory.connect(url, properties)) {
             MBeanServerConnection mbsc = jmxc.getMBeanServerConnection();
 
