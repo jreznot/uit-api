@@ -154,7 +154,7 @@ internal class ConnectionImpl(host: JmxHost?) : Connection {
             when (method.name) {
                 "equals" -> proxy == args?.firstOrNull()
                 "hashCode" -> clazz.hashCode()
-                "toString" -> "@Service(APP) " + remote.value
+                "toString" -> "Utility " + remote.value
                 else -> {
                     val (sessionId, dispatcher, semantics) = sessionHolder.get() ?: NO_SESSION
                     val call = UtilityCall(
