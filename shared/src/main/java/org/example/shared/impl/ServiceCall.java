@@ -33,8 +33,8 @@ public final class ServiceCall extends RemoteCall {
     public String toString() {
         return "ServiceCall{" +
                 "className=" + getClassName() +
-                "methodName=" + getMethodName() +
-                "projectRef=" + projectRef +
+                " methodName=" + getMethodName() +
+                " projectRef=" + projectRef +
                 '}';
     }
 }

@@ -1,52 +1,46 @@
 package org.example.app.remote;
 
 import org.example.shared.Ref;
-import org.example.shared.impl.RemoteCall;
-import org.example.shared.impl.RemoteCallResult;
+import org.example.shared.impl.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.example.shared.impl.RemoteCall.isPassByValue;
 
 public class Invoker implements InvokerMBean {
     public static final int NO_SESSION_ID = 0;
 
     // todo store initial pluginId for each reference
-    private final Map<Integer, WeakReference<Object>> adhocReferenceMap = new ConcurrentHashMap<>();
     private final Map<Integer, Session> sessions = new ConcurrentHashMap<>();
-
     private final AtomicInteger sessionIdSequence = new AtomicInteger(1);
+
+    private final Map<Integer, WeakReference<Object>> adhocReferenceMap = new ConcurrentHashMap<>();
     private final AtomicInteger adhocRefSequence = new AtomicInteger(1);
 
     @Override
     public RemoteCallResult invoke(RemoteCall call) {
-        Class<?> target;
-        try {
-            target = getClass().getClassLoader().loadClass(call.getClassName());
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("No such class" + call.getClassName(), e);
-        }
-
-        Method targetMethod;
-        try {
-            targetMethod = target.getMethod(call.getMethodName());
-        } catch (NoSuchMethodException e) {
-            throw new IllegalStateException("No method " + call.getMethodName() + " in class" + call.getClassName(), e);
-        }
-
-        Object instance = findInstance(call, target);
         Object[] args = transformArgs(call);
+
+        CallTarget callTarget = getCallTarget(call);
+
+        Object instance = findInstance(call, callTarget.clazz());
 
         Object result;
         try {
-            result = targetMethod.invoke(instance, args);
+            result = callTarget.targetMethod().invoke(instance, args);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException("Exception ", e);
+        }
+
+        if (isPassByValue(result)) {
+            // does not need a session, pass by value
+            return new RemoteCallResult(result);
         }
 
         // todo support allow list of simple type results, return them as plain value
@@ -54,25 +48,82 @@ public class Invoker implements InvokerMBean {
             int id = adhocRefSequence.getAndIncrement();
             Ref ref = RefProducer.makeRef(id, result);
             adhocReferenceMap.put(id, new WeakReference<>(result));
+
+            if (result instanceof Collection<?>) {
+                List<Ref> items = new ArrayList<>(((Collection<?>) result).size());
+                for (Object item : ((Collection<?>) result)) {
+                    int itemId = adhocRefSequence.getAndIncrement();
+                    items.add(RefProducer.makeRef(itemId, item));
+                }
+                return new RemoteCallResult(new RefList(id, result.getClass().getName(), items));
+            }
+
             return new RemoteCallResult(ref);
         } else {
             Session session = sessions.get(call.getSessionId());
             Ref ref = session.putReference(result);
+
+            if (result instanceof Collection<?>) {
+                List<Ref> items = new ArrayList<>(((Collection<?>) result).size());
+                for (Object item : ((Collection<?>) result)) {
+                    items.add(session.putReference(item));
+                }
+                return new RemoteCallResult(new RefList(ref.id(), result.getClass().getName(), items));
+            }
+
             return new RemoteCallResult(ref);
         }
     }
 
-    private Object findInstance(RemoteCall call, Class<?> target) {
-        Object instance;
+    private @NotNull CallTarget getCallTarget(RemoteCall call) {
+        Class<?> clazz;
         try {
-            Method instanceGetter = target.getDeclaredMethod("getInstance");
-            instance = instanceGetter.invoke(null);
-        } catch (NoSuchMethodException e) {
-            throw new IllegalStateException("No getInstance() in class" + call.getClassName(), e);
-        } catch (InvocationTargetException | IllegalAccessException e) {
-            throw new RuntimeException("Unable to get service instance", e);
+            clazz = getClass().getClassLoader().loadClass(call.getClassName());
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException("No such class" + call.getClassName(), e);
         }
-        return instance;
+
+        Method targetMethod;
+        try {
+            targetMethod = Arrays.stream(clazz.getMethods())
+                    .filter(m -> m.getName().equals(call.getMethodName()))
+                    .findFirst()
+                    .orElseThrow(() -> new NoSuchMethodException("No method by name")); // todo take into account argument types
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException("No method " + call.getMethodName() + " in class " + call.getClassName(), e);
+        }
+
+        return new CallTarget(clazz, targetMethod);
+    }
+
+    private Object findInstance(RemoteCall call, Class<?> clazz) {
+        if (call instanceof ServiceCall) {
+            Object instance;
+            try {
+                Method instanceGetter = clazz.getDeclaredMethod("getInstance");
+                instance = instanceGetter.invoke(null);
+            } catch (NoSuchMethodException e) {
+                throw new IllegalStateException("No getInstance() in class" + call.getClassName(), e);
+            } catch (InvocationTargetException | IllegalAccessException e) {
+                throw new RuntimeException("Unable to get service instance", e);
+            }
+            return instance;
+        }
+
+        if (call instanceof RefCall) {
+            Ref ref = ((RefCall) call).getRef();
+            Object reference = getReference(call.getSessionId(), ref.id());
+
+            if (reference == null) throw new IllegalStateException("No such ref exists " + ref);
+
+            return reference;
+        }
+
+        if (call instanceof UtilityCall) {
+            return null; // static call
+        }
+
+        throw new UnsupportedOperationException("Unsupported call type " + call);
     }
 
     private @NotNull Object[] transformArgs(RemoteCall call) {
@@ -101,7 +152,12 @@ public class Invoker implements InvokerMBean {
             return session.findReference(id);
         }
 
-        return adhocReferenceMap.get(id);
+        WeakReference<Object> reference = adhocReferenceMap.get(id);
+        Object weakTarget = reference.get();
+        if (weakTarget == null) throw new IllegalStateException("Weak Ref expired " + id);
+        if (weakTarget == RefProducer.NULL_REF) return null;
+
+        return weakTarget;
     }
 
     @Override
@@ -115,6 +171,9 @@ public class Invoker implements InvokerMBean {
     public void cleanup(int sessionId) {
         sessions.remove(sessionId);
     }
+}
+
+record CallTarget(Class<?> clazz, Method targetMethod) {
 }
 
 final class Session {

@@ -1,11 +1,11 @@
 package org.example;
 
 import org.example.remoting.Remote;
-import org.example.shared.Ref;
+import org.example.remoting.sdk.Project;
 
 @Remote("org.example.app.BuildService")
 interface BuildService {
-    BuildResult build(Ref projectRef, String args);
+    BuildResult build(Project projectRef, String args);
 }
 
 @Remote("org.example.app.BuildResult")

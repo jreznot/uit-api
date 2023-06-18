@@ -62,4 +62,17 @@ public abstract class RemoteCall implements Serializable {
     public String getPluginId() {
         return pluginId;
     }
+
+    public static boolean isPassByValue(Object result) {
+        // does not need a session, pass by value
+        return result == null
+                || result instanceof String
+                || result instanceof Boolean
+                || result instanceof Integer
+                || result instanceof Long
+                || result instanceof Byte
+                || result instanceof Short
+                || result instanceof Double
+                || result instanceof Float;
+    }
 }

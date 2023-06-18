@@ -14,10 +14,11 @@ class DemoTest {
         connection.withContext(OnDispatcher.DEFAULT) {
             val projects = service(ProjectManager::class).getOpenProjects()
             assertEquals(1, projects.size)
+            assertEquals("intellij", projects[0].getName())
 
             val buildService = connection.service(BuildService::class)
-            val x = withReadAction { buildService.build(null, "") }
-            val y = withReadAction { buildService.build(null, "") }
+            val x = withReadAction { buildService.build(projects[0], "") }
+            val y = withReadAction { buildService.build(projects[0], "") }
 
             withWriteAction { buildService.build(null, x.args + y.args) }
         }

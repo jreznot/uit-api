@@ -8,10 +8,9 @@ import org.example.remoting.jmx.JmxName
 import org.example.shared.LockSemantics
 import org.example.shared.OnDispatcher
 import org.example.shared.Ref
-import org.example.shared.impl.RemoteCall
-import org.example.shared.impl.RemoteCallResult
-import org.example.shared.impl.ServiceCall
+import org.example.shared.impl.*
 import java.lang.reflect.Method
+import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Proxy
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
@@ -43,11 +42,12 @@ internal class ConnectionImpl(host: JmxHost?) : Connection {
     }
 
     private fun serviceBridge(clazz: Class<*>): Any {
-        val remote = findRemoteMeta(clazz) ?: throw IllegalArgumentException("Class $clazz is not annotated with @Remote annotation")
+        val remote = findRemoteMeta(clazz)
+                ?: throw IllegalArgumentException("Class $clazz is not annotated with @Remote annotation")
 
-        return Proxy.newProxyInstance(Connection::class.java.classLoader, arrayOf(clazz)) { _: Any?, method: Method, args: Array<Any?>? ->
+        return Proxy.newProxyInstance(getClassLoader(), arrayOf(clazz)) { proxy: Any?, method: Method, args: Array<Any?>? ->
             when (method.name) {
-                "equals" -> false
+                "equals" -> proxy == args?.firstOrNull()
                 "hashCode" -> clazz.hashCode()
                 "toString" -> "@Service(APP) " + remote.value
                 else -> {
@@ -59,27 +59,101 @@ internal class ConnectionImpl(host: JmxHost?) : Connection {
                             semantics,
                             remote.value,
                             method.name,
-                            args,
+                            convertArgsToPass(args),
                             null
                     )
-                    invoker.invoke(call)
+                    val callResult = invoker.invoke(call)
+                    convertResult(callResult, method)
                 }
             }
         }
+    }
+
+    private fun convertArgsToPass(args: Array<Any?>?): Array<Any?> {
+        if (args == null) return emptyArray()
+
+        return args
+                .map { if (it is RefWrapper) it.getRef() else it }
+                .toTypedArray()
+    }
+
+    private fun convertResult(callResult: RemoteCallResult, method: Method): Any? {
+        val value = callResult.value ?: return null
+
+        if (RemoteCall.isPassByValue(value)) {
+            return value
+        }
+
+        if (value is Ref) {
+            if (Ref::class.java.isAssignableFrom(method.returnType)) return value
+
+            return refBridge(method.returnType, value)
+        }
+
+        if (value is RefList) {
+            if (method.returnType == RefList::class.java) return value
+
+            if (Collection::class.java.isAssignableFrom(method.returnType)
+                    || Collection::class.java.isAssignableFrom(method.returnType)) {
+                val parameterizedType = method.genericReturnType as? ParameterizedType ?: return value.items
+                val componentType = parameterizedType.actualTypeArguments.firstOrNull() as? Class<*>
+                        ?: return value.items
+
+                return value.items.map { refBridge(componentType, it) }
+            }
+
+            return value // todo better handle primitive lists
+        }
+
+        return null
+    }
+
+    private fun refBridge(clazz: Class<*>, ref: Ref): Any {
+        val remote = findRemoteMeta(clazz)
+                ?: throw IllegalArgumentException("Class $clazz is not annotated with @Remote annotation")
+
+        return Proxy.newProxyInstance(getClassLoader(), arrayOf(clazz, RefWrapper::class.java)) { proxy: Any?, method: Method, args: Array<Any?>? ->
+            when (method.name) {
+                "equals" -> proxy == args?.firstOrNull()
+                "hashCode" -> ref.identityHashCode
+                "toString" -> ref.asString
+                "getRef" -> ref
+                else -> {
+                    val (sessionId, dispatcher, semantics) = sessionHolder.get() ?: NO_SESSION
+                    val call = RefCall(
+                            sessionId,
+                            null,
+                            dispatcher,
+                            semantics,
+                            remote.value,
+                            method.name,
+                            convertArgsToPass(args),
+                            ref
+                    )
+                    val callResult = invoker.invoke(call)
+                    convertResult(callResult, method)
+                }
+            }
+        }
+    }
+
+    private fun getClassLoader(): ClassLoader? {
+        return javaClass.classLoader
     }
 
     override fun <T> withContext(dispatcher: OnDispatcher,
                                  semantics: LockSemantics,
                                  code: Connection.() -> T): T {
         val currentValue = sessionHolder.get()
-        sessionHolder.set(Session(currentValue?.id ?: invoker.newSession(), dispatcher, semantics))
+        val runAsSession = Session(currentValue?.id ?: invoker.newSession(), dispatcher, semantics)
+        sessionHolder.set(runAsSession)
         return try {
             this.code()
         } finally {
             if (currentValue != null) {
                 sessionHolder.set(currentValue)
             } else {
-                invoker.cleanup(invoker.newSession()) // todo handle network errors quietly
+                invoker.cleanup(runAsSession.id) // todo handle network errors quietly
             }
         }
     }
@@ -109,7 +183,7 @@ private val NO_SESSION: Session = Session(0, OnDispatcher.DEFAULT, LockSemantics
 
 @JmxName("com.intellij:type=Invoker")
 internal interface Invoker {
-    fun invoke(call: RemoteCall): RemoteCallResult?
+    fun invoke(call: RemoteCall): RemoteCallResult
 
     fun newSession(): Int
 

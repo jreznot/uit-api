@@ -10,4 +10,11 @@ public class Project {
     public String getName() {
         return name;
     }
+
+    @Override
+    public String toString() {
+        return "Project{" +
+                "name='" + name + '\'' +
+                '}';
+    }
 }

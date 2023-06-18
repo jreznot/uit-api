@@ -1,9 +1,13 @@
 package org.example.remoting.sdk
 
 import org.example.remoting.Remote
-import org.example.shared.Ref
 
 @Remote("org.example.app.ProjectManager")
 interface ProjectManager {
-    fun getOpenProjects(): List<Ref>
+    fun getOpenProjects(): List<Project>
+}
+
+@Remote("org.example.app.Project")
+interface Project {
+    fun getName(): String
 }
