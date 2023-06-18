@@ -16,6 +16,8 @@ class DemoTest {
         connection.withContext(OnDispatcher.DEFAULT) {
             val app = utility(ApplicationManager::class).getApplication()
 
+            val newApp = new(Application::class)
+
             val projects = service(ProjectManager::class).getOpenProjects()
             assertEquals(1, projects.size)
             assertEquals("intellij", projects[0].getName())
@@ -24,7 +26,7 @@ class DemoTest {
             val x = withReadAction { buildService.build(projects[0], "") }
             val y = withReadAction { buildService.build(projects[0], "") }
 
-            withWriteAction { buildService.build(null, x.args + y.args) }
+            withWriteAction { buildService.build(null, x.getArgs() + y.getArgs()) }
         }
     }
 }

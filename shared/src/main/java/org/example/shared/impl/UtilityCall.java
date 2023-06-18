@@ -23,7 +23,7 @@ public final class UtilityCall extends RemoteCall {
     public String toString() {
         return "UtilityCall{" +
                 "className=" + getClassName() +
-                "methodName=" + getMethodName() +
+                " methodName=" + getMethodName() +
                 '}';
     }
 }

@@ -25,7 +25,7 @@ interface Connection {
     @Contract(pure = true)
     fun <T : Any> utility(clazz: KClass<T>): T
 
-    fun <T : Any> new(clazz: KClass<T>, vararg args: Any?)
+    fun <T : Any> new(clazz: KClass<T>, vararg args: Any?): T
 
     fun <T> withContext(dispatcher: OnDispatcher = OnDispatcher.DEFAULT,
                         semantics: LockSemantics = LockSemantics.NO_LOCK,

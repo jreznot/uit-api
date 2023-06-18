@@ -14,16 +14,14 @@ public final class NewInstanceCall extends RemoteCall {
                            OnDispatcher dispatcher,
                            LockSemantics lockSemantics,
                            String className,
-                           String methodName,
                            Object[] args) {
-        super(sessionId, pluginId, dispatcher, lockSemantics, className, methodName, args);
+        super(sessionId, pluginId, dispatcher, lockSemantics, className, "new", args);
     }
 
     @Override
     public String toString() {
         return "NewInstanceCall{" +
                 "className=" + getClassName() +
-                "methodName=" + getMethodName() +
                 '}';
     }
 }

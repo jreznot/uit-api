@@ -1,14 +1,14 @@
-package org.example;
+package org.example
 
-import org.example.remoting.Remote;
-import org.example.remoting.sdk.Project;
+import org.example.remoting.Remote
+import org.example.remoting.sdk.Project
 
 @Remote("org.example.app.BuildService")
-interface BuildService {
-    BuildResult build(Project projectRef, String args);
+internal interface BuildService {
+    fun build(projectRef: Project?, args: String?): BuildResult
 }
 
 @Remote("org.example.app.BuildResult")
-interface BuildResult {
-    String getArgs();
+internal interface BuildResult {
+    fun getArgs(): String
 }

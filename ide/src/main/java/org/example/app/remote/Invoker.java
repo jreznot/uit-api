@@ -5,6 +5,7 @@ import org.example.shared.impl.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -31,15 +32,26 @@ public class Invoker implements InvokerMBean {
     public RemoteCallResult invoke(RemoteCall call) {
         Object[] args = transformArgs(call);
 
-        CallTarget callTarget = getCallTarget(call);
-
-        Object instance = findInstance(call, callTarget.clazz());
-
         Object result;
-        try {
-            result = callTarget.targetMethod().invoke(instance, args);
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException("Exception ", e);
+
+        if (call instanceof NewInstanceCall) {
+            Class<?> targetClass = getTargetClass(call);
+            Constructor<?> constructor = getConstructor(call, targetClass);
+
+            try {
+                result = constructor.newInstance(args);
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException("Exception on new instance call", e);
+            }
+        } else {
+            CallTarget callTarget = getCallTarget(call);
+            Object instance = findInstance(call, callTarget.clazz());
+
+            try {
+                result = callTarget.targetMethod().invoke(instance, args);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException("Exception ", e);
+            }
         }
 
         if (isPassByValue(result)) {
@@ -79,26 +91,38 @@ public class Invoker implements InvokerMBean {
         }
     }
 
+    private static Constructor<?> getConstructor(RemoteCall call, Class<?> targetClass) {
+        int argCount = call.getArgs().length;
+        return Arrays.stream(targetClass.getConstructors())
+                .filter(x -> x.getParameterCount() == argCount)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No such constructor found in " + targetClass));
+    }
+
     private @NotNull CallTarget getCallTarget(RemoteCall call) {
+        Class<?> clazz = getTargetClass(call);
+
+        int argCount = call.getArgs().length;
+        Method targetMethod = Arrays.stream(clazz.getMethods())
+                .filter(m -> m.getName().equals(call.getMethodName()) && argCount == m.getParameterCount())
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No method " + call.getMethodName() +
+                                " with parameter count " + argCount +
+                                " in class " + call.getClassName()));
+        // todo take into account argument types
+
+        return new CallTarget(clazz, targetMethod);
+    }
+
+    private Class<?> getTargetClass(RemoteCall call) {
         Class<?> clazz;
         try {
             clazz = getClass().getClassLoader().loadClass(call.getClassName());
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException("No such class" + call.getClassName(), e);
         }
-
-        Method targetMethod;
-        try {
-            int argCount = call.getArgs().length;
-            targetMethod = Arrays.stream(clazz.getMethods())
-                    .filter(m -> m.getName().equals(call.getMethodName()) && argCount == m.getParameterCount())
-                    .findFirst()
-                    .orElseThrow(() -> new NoSuchMethodException("No method by name")); // todo take into account argument types
-        } catch (NoSuchMethodException e) {
-            throw new IllegalStateException("No method " + call.getMethodName() + " in class " + call.getClassName(), e);
-        }
-
-        return new CallTarget(clazz, targetMethod);
+        return clazz;
     }
 
     private Object findInstance(RemoteCall call, Class<?> clazz) {
@@ -132,18 +156,21 @@ public class Invoker implements InvokerMBean {
     }
 
     private @NotNull Object[] transformArgs(RemoteCall call) {
-        return Arrays.stream(call.getArgs())
-                .map(x -> {
-                    if (x instanceof Ref) {
-                        Object reference = getReference(call.getSessionId(), ((Ref) x).id());
-                        if (reference == RefProducer.NULL_REF) return null;
+        Object[] args = new Object[call.getArgs().length];
+        for (int i = 0; i < args.length; i++) {
+            var arg = call.getArgs()[i];
 
-                        return reference;
-                    }
-                    return x;
-                })
-                .toList()
-                .toArray();
+            if (arg instanceof Ref) {
+                Object reference = getReference(call.getSessionId(), ((Ref) arg).id());
+                if (reference != RefProducer.NULL_REF) {
+                    args[i] = reference;
+                }
+            } else {
+                args[i] = arg;
+            }
+        }
+
+        return args;
     }
 
     private Object getReference(int sessionId, int id) {

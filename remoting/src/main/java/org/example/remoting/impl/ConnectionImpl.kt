@@ -50,16 +50,41 @@ internal class ConnectionImpl(host: JmxHost?) : Connection {
         return utils.computeIfAbsent(clazz.java, ::utilityBridge) as T
     }
 
-    override fun <T : Any> new(clazz: KClass<T>, vararg args: Any?) {
-        TODO("Not yet implemented")
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : Any> new(clazz: KClass<T>, vararg args: Any?) : T {
+        val remote = findRemoteMeta(clazz.java)
+                ?: throw IllegalArgumentException("Class $clazz is not annotated with @Remote annotation")
+
+        val (sessionId, dispatcher, semantics) = sessionHolder.get() ?: NO_SESSION
+        val call = NewInstanceCall(
+                sessionId,
+                null,
+                dispatcher,
+                semantics,
+                remote.value,
+                convertArgsToPass(args)
+        )
+        val callResult = invoker.invoke(call)
+        return convertResult(callResult, clazz.java) as T
     }
 
-    private fun convertArgsToPass(args: Array<Any?>?): Array<Any?> {
+    private fun convertArgsToPass(args: Array<out Any?>?): Array<Any?> {
         if (args == null) return emptyArray()
 
         return args
                 .map { if (it is RefWrapper) it.getRef() else it }
                 .toTypedArray()
+    }
+
+
+    private fun convertResult(callResult: RemoteCallResult, targetClass: Class<*>): Any? {
+        val value = callResult.value ?: return null
+
+        if (value is Ref) {
+            return refBridge(targetClass, value)
+        }
+
+        return null
     }
 
     private fun convertResult(callResult: RemoteCallResult, method: Method): Any? {
