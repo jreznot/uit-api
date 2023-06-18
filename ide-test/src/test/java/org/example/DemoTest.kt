@@ -14,6 +14,8 @@ class DemoTest {
         assertEquals(true, connection.isAvailable)
 
         connection.withContext(OnDispatcher.DEFAULT) {
+            val app = utility(ApplicationManager::class).getApplication()
+
             val projects = service(ProjectManager::class).getOpenProjects()
             assertEquals(1, projects.size)
             assertEquals("intellij", projects[0].getName())

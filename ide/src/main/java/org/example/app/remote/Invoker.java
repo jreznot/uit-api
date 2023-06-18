@@ -89,8 +89,9 @@ public class Invoker implements InvokerMBean {
 
         Method targetMethod;
         try {
+            int argCount = call.getArgs().length;
             targetMethod = Arrays.stream(clazz.getMethods())
-                    .filter(m -> m.getName().equals(call.getMethodName()))
+                    .filter(m -> m.getName().equals(call.getMethodName()) && argCount == m.getParameterCount())
                     .findFirst()
                     .orElseThrow(() -> new NoSuchMethodException("No method by name")); // todo take into account argument types
         } catch (NoSuchMethodException e) {

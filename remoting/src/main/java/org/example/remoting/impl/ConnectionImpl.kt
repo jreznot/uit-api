@@ -10,7 +10,6 @@ import org.example.shared.LockSemantics
 import org.example.shared.OnDispatcher
 import org.example.shared.Ref
 import org.example.shared.impl.*
-import java.io.IOException
 import java.lang.reflect.Method
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Proxy
@@ -46,40 +45,13 @@ internal class ConnectionImpl(host: JmxHost?) : Connection {
         TODO("Not yet implemented")
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun <T : Any> utility(clazz: KClass<T>): T {
-        TODO("Not yet implemented")
+        return utils.computeIfAbsent(clazz.java, ::utilityBridge) as T
     }
 
     override fun <T : Any> new(clazz: KClass<T>, vararg args: Any?) {
         TODO("Not yet implemented")
-    }
-
-    private fun serviceBridge(clazz: Class<*>): Any {
-        val remote = findRemoteMeta(clazz)
-                ?: throw IllegalArgumentException("Class $clazz is not annotated with @Remote annotation")
-
-        return Proxy.newProxyInstance(getClassLoader(), arrayOf(clazz)) { proxy: Any?, method: Method, args: Array<Any?>? ->
-            when (method.name) {
-                "equals" -> proxy == args?.firstOrNull()
-                "hashCode" -> clazz.hashCode()
-                "toString" -> "@Service(APP) " + remote.value
-                else -> {
-                    val (sessionId, dispatcher, semantics) = sessionHolder.get() ?: NO_SESSION
-                    val call = ServiceCall(
-                            sessionId,
-                            null,
-                            dispatcher,
-                            semantics,
-                            remote.value,
-                            method.name,
-                            convertArgsToPass(args),
-                            null
-                    )
-                    val callResult = invoker.invoke(call)
-                    convertResult(callResult, method)
-                }
-            }
-        }
     }
 
     private fun convertArgsToPass(args: Array<Any?>?): Array<Any?> {
@@ -119,6 +91,61 @@ internal class ConnectionImpl(host: JmxHost?) : Connection {
         }
 
         return null
+    }
+
+    private fun serviceBridge(clazz: Class<*>): Any {
+        val remote = findRemoteMeta(clazz)
+                ?: throw IllegalArgumentException("Class $clazz is not annotated with @Remote annotation")
+
+        return Proxy.newProxyInstance(getClassLoader(), arrayOf(clazz)) { proxy: Any?, method: Method, args: Array<Any?>? ->
+            when (method.name) {
+                "equals" -> proxy == args?.firstOrNull()
+                "hashCode" -> clazz.hashCode()
+                "toString" -> "@Service(APP) " + remote.value
+                else -> {
+                    val (sessionId, dispatcher, semantics) = sessionHolder.get() ?: NO_SESSION
+                    val call = ServiceCall(
+                            sessionId,
+                            null,
+                            dispatcher,
+                            semantics,
+                            remote.value,
+                            method.name,
+                            convertArgsToPass(args),
+                            null
+                    )
+                    val callResult = invoker.invoke(call)
+                    convertResult(callResult, method)
+                }
+            }
+        }
+    }
+
+    private fun utilityBridge(clazz: Class<*>): Any {
+        val remote = findRemoteMeta(clazz)
+                ?: throw IllegalArgumentException("Class $clazz is not annotated with @Remote annotation")
+
+        return Proxy.newProxyInstance(getClassLoader(), arrayOf(clazz)) { proxy: Any?, method: Method, args: Array<Any?>? ->
+            when (method.name) {
+                "equals" -> proxy == args?.firstOrNull()
+                "hashCode" -> clazz.hashCode()
+                "toString" -> "@Service(APP) " + remote.value
+                else -> {
+                    val (sessionId, dispatcher, semantics) = sessionHolder.get() ?: NO_SESSION
+                    val call = UtilityCall(
+                            sessionId,
+                            null,
+                            dispatcher,
+                            semantics,
+                            remote.value,
+                            method.name,
+                            convertArgsToPass(args)
+                    )
+                    val callResult = invoker.invoke(call)
+                    convertResult(callResult, method)
+                }
+            }
+        }
     }
 
     private fun refBridge(clazz: Class<*>, ref: Ref): Any {
