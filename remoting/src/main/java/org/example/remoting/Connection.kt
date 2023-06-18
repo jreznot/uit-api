@@ -4,7 +4,8 @@ import org.example.remoting.impl.ConnectionImpl
 import org.example.remoting.jmx.JmxHost
 import org.example.shared.LockSemantics
 import org.example.shared.OnDispatcher
-import org.example.shared.ProjectRef
+import org.example.shared.Ref
+import org.jetbrains.annotations.Contract
 import kotlin.reflect.KClass
 
 annotation class Remote(
@@ -13,10 +14,13 @@ annotation class Remote(
 )
 
 interface Connection {
+    @Contract(pure = true)
     fun <T : Any> service(clazz: KClass<T>): T
 
-    fun <T : Any> service(clazz: KClass<T>, projectRef: ProjectRef?): T
+    @Contract(pure = true)
+    fun <T : Any> service(clazz: KClass<T>, project: Ref?): T
 
+    @Contract(pure = true)
     fun <T : Any> utility(clazz: KClass<T>): T
 
     fun <T : Any> new(clazz: KClass<T>, vararg args: Any?)
@@ -32,6 +36,7 @@ interface Connection {
 
     companion object {
         @JvmStatic
+        @Contract(pure = true)
         fun create(host: JmxHost? = JmxHost(null, null, "localhost:7777")): Connection {
             return ConnectionImpl(host)
         }

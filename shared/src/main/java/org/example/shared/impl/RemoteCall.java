@@ -20,7 +20,8 @@ public abstract class RemoteCall implements Serializable {
     private final Object[] args;
 
     public RemoteCall(int sessionId,
-                      String pluginId, OnDispatcher dispatcher,
+                      String pluginId,
+                      OnDispatcher dispatcher,
                       LockSemantics lockSemantics,
                       String className,
                       String methodName,

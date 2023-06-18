@@ -1,13 +1,15 @@
-package org.example.shared;
+package org.example.shared.impl;
+
+import org.example.shared.Ref;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 
-public record Ref(
+public record RefList(
         int id,
         String className,
-        int identityHashCode,
-        String asString
+        List<Ref> items
 ) implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
