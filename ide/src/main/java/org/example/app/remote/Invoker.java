@@ -24,6 +24,10 @@ public class Invoker implements InvokerMBean {
     private final AtomicInteger adhocRefSequence = new AtomicInteger(1);
 
     @Override
+    public void ping() {
+    }
+
+    @Override
     public RemoteCallResult invoke(RemoteCall call) {
         Object[] args = transformArgs(call);
 

@@ -14,6 +14,8 @@ annotation class Remote(
 )
 
 interface Connection {
+    val isAvailable: Boolean
+
     @Contract(pure = true)
     fun <T : Any> service(clazz: KClass<T>): T
 

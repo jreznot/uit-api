@@ -5,6 +5,8 @@ import org.example.shared.impl.RemoteCallResult;
 
 @SuppressWarnings("unused")
 public interface InvokerMBean {
+    void ping();
+
     RemoteCallResult invoke(RemoteCall call);
 
     int newSession();

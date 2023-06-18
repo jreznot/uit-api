@@ -54,7 +54,7 @@ public class JmxCallHandler implements InvocationHandler {
 
             return wrappedHandler.invoke(proxy, method, args);
         } catch (IOException e) {
-            throw new RuntimeException("Unable to perform JMX call", e);
+            throw new JmxCallException("Unable to perform JMX call", e);
         }
     }
 

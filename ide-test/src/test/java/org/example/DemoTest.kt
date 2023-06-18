@@ -11,6 +11,8 @@ class DemoTest {
 
     @Test
     fun test() {
+        assertEquals(true, connection.isAvailable)
+
         connection.withContext(OnDispatcher.DEFAULT) {
             val projects = service(ProjectManager::class).getOpenProjects()
             assertEquals(1, projects.size)

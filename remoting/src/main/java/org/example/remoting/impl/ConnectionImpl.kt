@@ -2,6 +2,7 @@ package org.example.remoting.impl
 
 import org.example.remoting.Connection
 import org.example.remoting.Remote
+import org.example.remoting.jmx.JmxCallException
 import org.example.remoting.jmx.JmxCallHandler
 import org.example.remoting.jmx.JmxHost
 import org.example.remoting.jmx.JmxName
@@ -9,6 +10,7 @@ import org.example.shared.LockSemantics
 import org.example.shared.OnDispatcher
 import org.example.shared.Ref
 import org.example.shared.impl.*
+import java.io.IOException
 import java.lang.reflect.Method
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Proxy
@@ -23,6 +25,17 @@ internal class ConnectionImpl(host: JmxHost?) : Connection {
     private val appServices: MutableMap<Class<*>, Any> = ConcurrentHashMap()
     private val projectServices: Map<Ref, Map<Class<*>, Any>> = ConcurrentHashMap()
     private val utils: MutableMap<Class<*>, Any> = ConcurrentHashMap()
+
+    override val isAvailable: Boolean
+        get() {
+            try {
+                invoker.ping()
+            } catch (ioe: JmxCallException) {
+                return false
+            }
+
+            return true
+        }
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : Any> service(clazz: KClass<T>): T {
@@ -183,6 +196,8 @@ private val NO_SESSION: Session = Session(0, OnDispatcher.DEFAULT, LockSemantics
 
 @JmxName("com.intellij:type=Invoker")
 internal interface Invoker {
+    fun ping()
+
     fun invoke(call: RemoteCall): RemoteCallResult
 
     fun newSession(): Int
