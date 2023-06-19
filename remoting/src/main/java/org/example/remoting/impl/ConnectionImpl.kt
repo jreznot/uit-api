@@ -103,13 +103,21 @@ internal class ConnectionImpl(host: JmxHost?) : Connection {
         if (value is RefList) {
             if (method.returnType == RefList::class.java) return value
 
-            if (Collection::class.java.isAssignableFrom(method.returnType)
-                    || Collection::class.java.isAssignableFrom(method.returnType)) {
+            if (Collection::class.java.isAssignableFrom(method.returnType)) {
                 val parameterizedType = method.genericReturnType as? ParameterizedType ?: return value.items
                 val componentType = parameterizedType.actualTypeArguments.firstOrNull() as? Class<*>
                         ?: return value.items
 
                 return value.items.map { refBridge(componentType, it) }
+            }
+
+            if (method.returnType.isArray) {
+                val componentType = method.returnType.componentType
+                val array = java.lang.reflect.Array.newInstance(componentType, value.items.size)
+                for ((i, item) in value.items.withIndex()) {
+                    java.lang.reflect.Array.set(array, i, refBridge(componentType, item))
+                }
+                return array
             }
 
             return value // todo better handle primitive lists
