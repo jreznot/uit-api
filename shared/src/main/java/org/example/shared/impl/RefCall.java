@@ -33,8 +33,8 @@ public final class RefCall extends RemoteCall {
     public String toString() {
         return "RefCall{" +
                 "className=" + getClassName() +
-                "methodName=" + getMethodName() +
-                "ref=" + ref +
+                " methodName=" + getMethodName() +
+                " ref=" + ref +
                 '}';
     }
 }

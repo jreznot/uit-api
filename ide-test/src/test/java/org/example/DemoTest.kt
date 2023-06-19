@@ -17,6 +17,9 @@ class DemoTest {
         connection.withContext(OnDispatcher.DEFAULT) {
             val app = utility(ApplicationManager::class).getApplication()
 
+            val editors = service(FileEditorManager::class).getEditors()
+            assertEquals(2, editors.size)
+
             val newFrame = new(JFrame::class, "Demo $app")
             newFrame.setSize(640, 480)
             newFrame.setVisible(true)

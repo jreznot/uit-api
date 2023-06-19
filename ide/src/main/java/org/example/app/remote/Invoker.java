@@ -74,6 +74,17 @@ public class Invoker implements InvokerMBean {
                 return new RemoteCallResult(new RefList(id, result.getClass().getName(), items));
             }
 
+            if (result.getClass().isArray()) {
+                Object[] array = (Object[]) result;
+
+                List<Ref> items = new ArrayList<>(array.length);
+                for (Object item : array) {
+                    int itemId = adhocRefSequence.getAndIncrement();
+                    items.add(RefProducer.makeRef(itemId, item));
+                }
+                return new RemoteCallResult(new RefList(id, result.getClass().getName(), items));
+            }
+
             return new RemoteCallResult(ref);
         } else {
             Session session = sessions.get(call.getSessionId());
@@ -82,6 +93,16 @@ public class Invoker implements InvokerMBean {
             if (result instanceof Collection<?>) {
                 List<Ref> items = new ArrayList<>(((Collection<?>) result).size());
                 for (Object item : ((Collection<?>) result)) {
+                    items.add(session.putReference(item));
+                }
+                return new RemoteCallResult(new RefList(ref.id(), result.getClass().getName(), items));
+            }
+
+            if (result.getClass().isArray()) {
+                Object[] array = (Object[]) result;
+
+                List<Ref> items = new ArrayList<>(array.length);
+                for (Object item : array) {
                     items.add(session.putReference(item));
                 }
                 return new RemoteCallResult(new RefList(ref.id(), result.getClass().getName(), items));
